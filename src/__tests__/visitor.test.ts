@@ -5,7 +5,7 @@ import * as os from 'os';
 import { extractContent } from '../visitor.js';
 
 async function withTempFile(content: string, fn: (filePath: string) => Promise<void>) {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentify-test-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'telo-test-'));
   const file = path.join(dir, 'page.tsx');
   await fs.writeFile(file, content, 'utf-8');
   try {

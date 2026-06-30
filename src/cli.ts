@@ -31,9 +31,9 @@ export async function run(projectRoot: string, argv: string[]): Promise<void> {
 
   if (flags.help) {
     console.log(`
-agentify — generate AI-readable markdown from your Next.js source
+telo — generate AI-readable markdown from your Next.js source
 
-Usage: npx agentify-cli [options]
+Usage: npx telo [options]
 
 Options:
   --out <dir>              Output directory (default: public)
@@ -52,7 +52,7 @@ Options:
 
   if (skipped.length > 0) {
     for (const f of skipped) {
-      console.warn(`agentify: skipped dynamic route: ${path.relative(projectRoot, f)}`);
+      console.warn(`telo: skipped dynamic route: ${path.relative(projectRoot, f)}`);
     }
   }
 
@@ -97,14 +97,14 @@ Options:
   await fs.writeFile(path.join(outDir, 'llms.txt'), llmsTxt, 'utf-8');
 
   console.log(
-    `agentify: generated ${results.length} pages + llms.txt → ${path.relative(projectRoot, outDir)}/`
+    `telo: generated ${results.length} pages + llms.txt → ${path.relative(projectRoot, outDir)}/`
   );
 
   // Write ai-annotation-guide.md
   const annotations = await scanForAnnotations(projectRoot);
   const guide = renderAnnotationGuide(annotations);
   await fs.writeFile(path.join(projectRoot, 'ai-annotation-guide.md'), guide, 'utf-8');
-  console.log('agentify: annotation guide → ai-annotation-guide.md');
+  console.log('telo: annotation guide → ai-annotation-guide.md');
 }
 
 function renderMarkdown(
@@ -137,7 +137,7 @@ function renderMarkdown(
 // Auto-execute only when run as the main script
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   run(process.cwd(), process.argv.slice(2)).catch((err) => {
-    console.error('agentify:', err.message);
+    console.error('telo:', err.message);
     process.exit(1);
   });
 }

@@ -1,21 +1,21 @@
 {
   "name": "@pkg/react",
   "version": "0.0.1",
-  "description": "AIContent component for agentify — namespace placeholder. Full implementation coming soon.",
+  "description": "AIContent component for telo — namespace placeholder. Full implementation coming soon.",
   "type": "module",
   "main": "index.js",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ggange/agentify.git",
+    "url": "https://github.com/ggange/telo.git",
     "directory": "packages/react"
   },
-  "homepage": "https://github.com/ggange/agentify#readme",
-  "bugs": "https://github.com/ggange/agentify/issues",
+  "homepage": "https://github.com/ggange/telo#readme",
+  "bugs": "https://github.com/ggange/telo/issues",
   "keywords": [
     "ai",
     "agents",
     "react",
-    "agentify"
+    "telo"
   ]
 }

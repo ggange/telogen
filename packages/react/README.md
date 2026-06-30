@@ -1,6 +1,6 @@
 # @pkg/react
 
-> **Namespace placeholder** — full implementation shipping with agentify Phase 2.
+> **Namespace placeholder** — full implementation shipping with telo Phase 2.
 
 This package reserves the `@pkg/react` npm namespace. The `<AIContent>` component will be published here once the Phase 2 implementation is complete.
 
@@ -9,7 +9,7 @@ This package reserves the `@pkg/react` npm namespace. The `<AIContent>` componen
 ```tsx
 import { AIContent } from '@pkg/react';
 
-// Wraps any content to make it visible to AI agents via agentify
+// Wraps any content to make it visible to AI agents via telo
 function Hero({ title }: { title: string }) {
   return (
     <AIContent label="hero-title">
@@ -23,7 +23,7 @@ function Hero({ title }: { title: string }) {
 
 ## Timeline
 
-- `agentify` v0.1.0 — annotation guide tells you *where* to add `<AIContent>`
+- `telo` v0.1.0 — annotation guide tells you *where* to add `<AIContent>`
 - `@pkg/react` v0.1.0 — ships the actual component (Phase 2)
 
-Follow progress at [github.com/ggange/agentify](https://github.com/ggange/agentify).
+Follow progress at [github.com/ggange/telo](https://github.com/ggange/telo).

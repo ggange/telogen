@@ -1,10 +1,10 @@
 {
-  "name": "agentify-cli",
+  "name": "telo",
   "version": "0.1.0",
   "description": "Generate AI-readable markdown from your React source. No proxy, no runtime cost.",
   "type": "module",
   "bin": {
-    "agentify": "dist/cli.js"
+    "telo": "dist/cli.js"
   },
   "files": [
     "dist"
@@ -35,10 +35,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ggange/agentify.git"
+    "url": "git+https://github.com/ggange/telo.git"
   },
-  "homepage": "https://github.com/ggange/agentify#readme",
-  "bugs": "https://github.com/ggange/agentify/issues",
+  "homepage": "https://github.com/ggange/telo#readme",
+  "bugs": "https://github.com/ggange/telo/issues",
   "keywords": [
     "llm",
     "ai",

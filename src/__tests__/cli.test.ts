@@ -5,7 +5,7 @@ import * as os from 'os';
 import { parseArgs, run } from '../cli.js';
 
 async function mkFixture(structure: Record<string, string>): Promise<string> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'agentify-cli-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'telo-cli-'));
   for (const [rel, content] of Object.entries(structure)) {
     const full = path.join(root, rel);
     await fs.mkdir(path.dirname(full), { recursive: true });
@@ -151,7 +151,7 @@ describe('run() — App Router', () => {
   test('writes ai-annotation-guide.md to project root', async () => {
     const root = await mkFixture({
       'app/page.tsx': `
-        export default function Page() { return <Hero title="Welcome to agentify" />; }
+        export default function Page() { return <Hero title="Welcome to telo" />; }
       `,
     });
     try {
@@ -166,7 +166,7 @@ describe('run() — App Router', () => {
 
 describe('run() — error cases', () => {
   test('throws when no Next.js project found', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'agentify-empty-'));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'telo-empty-'));
     try {
       await expect(run(root, [])).rejects.toThrow('no Next.js project found');
     } finally {

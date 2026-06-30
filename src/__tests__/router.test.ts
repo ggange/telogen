@@ -5,7 +5,7 @@ import * as os from 'os';
 import { detectRoutes } from '../router.js';
 
 async function mkFixture(structure: Record<string, string>): Promise<string> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'agentify-router-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'telo-router-'));
   for (const [rel, content] of Object.entries(structure)) {
     const full = path.join(root, rel);
     await fs.mkdir(path.dirname(full), { recursive: true });
@@ -136,7 +136,7 @@ describe('Pages Router detection', () => {
 
 describe('router=none fallback', () => {
   test('returns none when no Next.js structure exists', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'agentify-empty-'));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'telo-empty-'));
     try {
       const { router, routes } = await detectRoutes(root);
       expect(router).toBe('none');
