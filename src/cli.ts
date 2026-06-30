@@ -33,7 +33,7 @@ export async function run(projectRoot: string, argv: string[]): Promise<void> {
     console.log(`
 agentify — generate AI-readable markdown from your Next.js source
 
-Usage: npx agentify [options]
+Usage: npx agentify-cli [options]
 
 Options:
   --out <dir>              Output directory (default: public)
