@@ -3,7 +3,7 @@
 Generate AI-readable markdown from your Next.js source — no proxy, no runtime cost.
 
 ```
-npx agentify
+npx agentify-cli
 ```
 
 Produces a `page.md` file alongside every static route and an `llms.txt` index that AI agents can follow, all derived directly from your source code at build time.
@@ -80,13 +80,13 @@ AI agents follow the two-hop pattern: fetch `/llms.txt` → follow links to per-
 
 ```bash
 # Run once (no install needed)
-npx agentify
+npx agentify-cli
 
 # Or install globally
-npm install -g agentify
+npm install -g agentify-cli
 
 # Or add to your project
-npm install --save-dev agentify
+npm install --save-dev agentify-cli
 ```
 
 Requires Node.js ≥ 18.
@@ -96,7 +96,7 @@ Requires Node.js ≥ 18.
 ## Usage
 
 ```bash
-npx agentify [options]
+npx agentify-cli [options]
 ```
 
 | Option | Default | Description |
@@ -111,7 +111,7 @@ npx agentify [options]
 ```json
 {
   "scripts": {
-    "build": "next build && agentify"
+    "build": "next build && agentify-cli"
   }
 }
 ```
@@ -264,6 +264,9 @@ cd agentify
 npm install
 npm test       # 70 tests, ~500ms
 npm run build  # outputs dist/cli.js
+
+# The installed command is 'agentify' (binary name), invoked via:
+npx agentify-cli
 ```
 
 agentify is built with `@babel/parser` + `@babel/traverse` for AST analysis and `tsup` for bundling. The CLI produces a single self-contained `dist/cli.js` with a Node shebang, suitable for `npx`.
