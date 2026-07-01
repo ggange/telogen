@@ -36,3 +36,12 @@ jobs:
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Smoke test (bin via symlink)
+        run: |
+          mkdir -p /tmp/smoke/app
+          echo 'export const metadata = { title: "Smoke", description: "ok" }; export default function P() { return <main><h1>Smoke</h1></main>; }' \
+            > /tmp/smoke/app/page.tsx
+          node dist/cli.js --out /tmp/smoke/out
+          grep -q '\[Smoke\]' /tmp/smoke/out/llms.txt
+          echo "smoke: OK"
