@@ -1,7 +1,7 @@
 {
-  "name": "@pkg/react",
+  "name": "@telogen/react",
   "version": "0.0.1",
-  "description": "AIContent component for telogen — namespace placeholder. Full implementation coming soon.",
+  "description": "AIContent component for telogen — companion package. The component ships with telogen Phase 2.",
   "type": "module",
   "main": "index.js",
   "license": "MIT",

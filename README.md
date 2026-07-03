@@ -209,12 +209,13 @@ telogen extracts text from JSX using a set of heuristics:
 ## AI annotation guide
 
 Every run writes `ai-annotation-guide.md` to your project root. It scans all
-source files (not just route files) for components and string props that would
-benefit from `<AIContent>` wrapping, so their content can be extracted by
-telogen in future runs.
+source files (not just route files) for components and string props whose
+content telogen currently can't reach, and maps each one to the spot you'd mark
+it for extraction.
 
-The file is designed to be handed to an AI coding assistant. Open it for the
-exact install command and prompt to use once `@pkg/react` is published.
+The file is a diagnostic map: it shows you *where* extractable content lives
+inside your components. Marking those spots with `<AIContent>` (from
+`@telogen/react`, shipping in Phase 2) lets telogen pick them up on the next run.
 
 > **Note:** `ai-annotation-guide.md` is regenerated on every run — edits are
 > ephemeral. Use `.telogenignore` to permanently exclude files.
@@ -250,7 +251,7 @@ export default async function Page() {
 }
 ```
 
-**The fix:** run `npx telogen` once to generate `ai-annotation-guide.md`, then follow its instructions to wrap key content inside your components with `<AIContent>` from `@pkg/react` (coming soon). Once annotated, telogen will pick up that content on the next run.
+This is a deliberate boundary: telogen analyzes each route file on its own rather than resolving import chains, which keeps it fast and dependency-free. To see what you're missing, run `npx telogen` once and open the generated `ai-annotation-guide.md` — it maps the extractable content inside your components. Marking those spots with `<AIContent>` (from `@telogen/react`, shipping in Phase 2) will let telogen extract them; until then the guide at least tells you exactly where that content is.
 
 **Pages that only call `redirect()` produce empty output.** This is expected — there is no content to extract.
 
