@@ -4,8 +4,9 @@
 > component ships here with telogen Phase 2 — it is not published yet.
 
 telogen reads your route files directly and can't see content that lives inside child
-components. `<AIContent>` is a lightweight marker that tells telogen to extract that
-content on the next run.
+components. `<AIContent>` will be a lightweight marker for that content — once this
+component ships alongside the matching CLI-side extraction in Phase 2, wrapping content
+with it will let telogen pick it up on the next run.
 
 ## Planned API
 

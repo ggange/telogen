@@ -214,8 +214,9 @@ content telogen currently can't reach, and maps each one to the spot you'd mark
 it for extraction.
 
 The file is a diagnostic map: it shows you *where* extractable content lives
-inside your components. Marking those spots with `<AIContent>` (from
-`@telogen/react`, shipping in Phase 2) lets telogen pick them up on the next run.
+inside your components. `<AIContent>` (from `@telogen/react`) and the CLI-side
+extraction that reads it both ship together in Phase 2 — once they do, marking
+these spots will let telogen pick up that content on the next run.
 
 > **Note:** `ai-annotation-guide.md` is regenerated on every run — edits are
 > ephemeral. Use `.telogenignore` to permanently exclude files.
@@ -251,7 +252,7 @@ export default async function Page() {
 }
 ```
 
-This is a deliberate boundary: telogen analyzes each route file on its own rather than resolving import chains, which keeps it fast and dependency-free. To see what you're missing, run `npx telogen` once and open the generated `ai-annotation-guide.md` — it maps the extractable content inside your components. Marking those spots with `<AIContent>` (from `@telogen/react`, shipping in Phase 2) will let telogen extract them; until then the guide at least tells you exactly where that content is.
+This is a deliberate boundary: telogen analyzes each route file on its own rather than resolving import chains, which keeps it fast and dependency-free. To see what you're missing, run `npx telogen` once and open the generated `ai-annotation-guide.md` — it maps the extractable content inside your components. `<AIContent>` (from `@telogen/react`) and the CLI-side support for reading it both ship together in Phase 2; until then, the guide at least tells you exactly where that content is.
 
 **Pages that only call `redirect()` produce empty output.** This is expected — there is no content to extract.
 
