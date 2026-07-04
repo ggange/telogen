@@ -18,6 +18,16 @@ Modern websites are built for human eyes: rendered HTML, client-side hydration, 
 
 **telogen** works offline from your source tree. Because it reads the React AST — not the rendered output — it works even for CSR apps that are invisible to crawlers, requires no runtime dependency, and can run in CI next to your linter.
 
+telogen **never executes your code**. It parses your source with `@babel/parser` and walks the AST — no imports are loaded, no build step runs, nothing in your project is evaluated.
+
+### Does any agent actually read llms.txt?
+
+Fair question — an oft-cited Ahrefs study found ~97% of llms.txt files are never fetched *by crawlers*. That stat measures the wrong consumers. Training crawlers (GPTBot, CCBot) ingest rendered HTML at scale and ignore llms.txt; but IDE assistants (Cursor, Claude Code, Copilot) and user-directed agents fetch llms.txt on demand when someone points them at your site — and those are the visits where being machine-readable decides whether the agent gets your pricing right or hallucinates it.
+
+More importantly, telogen's real product is the **per-page `.md` files**. For CSR/SPA pages, a crawler that doesn't execute JavaScript sees an empty `<div id="root">` — the generated markdown is the only readable version of that content, llms.txt or not.
+
+**See it before you install:** [`examples/demo/`](examples/demo/) is a committed example — a small App Router project with the actual generated [`llms.txt`](examples/demo/public/llms.txt), per-page `.md` files, and [`ai-annotation-guide.md`](examples/demo/ai-annotation-guide.md) checked in.
+
 ### How it differs from Cloudflare's approach
 
 | | telogen | Cloudflare AI Gateway / Workers |
@@ -106,7 +116,10 @@ npx telogen [options]
 | `--out <dir>` | `public` | Output directory |
 | `--skip-dynamic` | off | Omit `<!-- dynamic content -->` comments |
 | `--skip-components <list>` | — | Comma-separated JSX element names to exclude (e.g. `NavBar,Sidebar`) |
+| `--force` | off | Overwrite an existing `llms.txt` that telogen didn't generate |
 | `--help` | | Show help |
+
+telogen refuses to overwrite an `llms.txt` it doesn't recognize as its own output — a handcrafted file needs `--force`. Every run starts by printing its version and ends with a coverage summary (`14 routes → 10 with content, 4 mostly empty`) pointing at `ai-annotation-guide.md` for the empty ones.
 
 ### In your build pipeline
 
@@ -126,12 +139,12 @@ Or in CI alongside your existing steps — it reads source files, not build outp
 
 | Router | Status |
 |---|---|
-| Next.js App Router (`app/`) | Supported |
-| Next.js Pages Router (`pages/`) | Supported |
+| Next.js App Router (`app/` or `src/app/`) | Supported |
+| Next.js Pages Router (`pages/` or `src/pages/`) | Supported |
 | Remix | Planned |
 | Astro | Planned |
 
-telogen auto-detects which router your project uses. If both `app/` and `pages/` exist it prefers App Router.
+telogen auto-detects which router your project uses, following Next.js's own precedence: `app/` > `pages/` > `src/app/` > `src/pages/` (a root `app/` or `pages/` makes `src/` variants invisible, exactly as in Next.js).
 
 ---
 

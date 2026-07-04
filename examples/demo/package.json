@@ -1,0 +1,10 @@
+{
+  "name": "telogen-demo",
+  "private": true,
+  "description": "Committed telogen example — the files in public/ and ai-annotation-guide.md are the actual output of running `npx telogen` here.",
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
