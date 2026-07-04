@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { parse } from '@babel/parser';
+import { parseSource } from './parse.js';
 import _traverse from '@babel/traverse';
 // @babel/traverse is CommonJS; in ESM bundles the function is on .default
 const traverse = ((_traverse as any).default ?? _traverse) as typeof _traverse;
@@ -53,6 +53,18 @@ function normalizeIgnorePattern(pattern: string): string {
   return pattern.replace(/\/$/, '') + '/**';
 }
 
+// Read/parse at most this many files at a time — an unbounded Promise.all
+// over a monorepo-sized file list exhausts file descriptors and memory.
+const SCAN_CONCURRENCY = 32;
+
+// Skip files larger than this; generated bundles and vendored blobs dominate
+// above it and parsing them stalls the scan.
+const MAX_FILE_BYTES = 512 * 1024;
+
+// Stop rendering guide entries past this size — a multi-MB guide is noise,
+// not a map. Whole files are dropped (never partial file sections).
+const MAX_GUIDE_BYTES = 256 * 1024;
+
 export async function scanForAnnotations(projectRoot: string): Promise<FileAnnotations[]> {
   const userIgnore = await readTelogenIgnore(projectRoot);
 
@@ -63,31 +75,40 @@ export async function scanForAnnotations(projectRoot: string): Promise<FileAnnot
       '**/node_modules/**',
       '**/.next/**',
       '**/dist/**',
+      '**/build/**',
+      '**/out/**',
+      '**/coverage/**',
+      '**/.turbo/**',
+      '**/.vercel/**',
+      '**/storybook-static/**',
       '**/*.test.*',
       '**/*.spec.*',
       ...userIgnore,
     ],
   });
 
-  const fileResults = await Promise.all(
-    files.map(async (filePath): Promise<FileAnnotations | null> => {
+  const fileResults: Array<FileAnnotations | null> = [];
+  for (let i = 0; i < files.length; i += SCAN_CONCURRENCY) {
+    const batch = files.slice(i, i + SCAN_CONCURRENCY);
+    fileResults.push(...(await Promise.all(batch.map(scanFile(projectRoot)))));
+  }
+
+  return fileResults.filter((r): r is FileAnnotations => r !== null);
+}
+
+function scanFile(projectRoot: string) {
+  return async (filePath: string): Promise<FileAnnotations | null> => {
       let src: string;
       try {
+        const stat = await fs.stat(filePath);
+        if (stat.size > MAX_FILE_BYTES) return null;
         src = await fs.readFile(filePath, 'utf-8');
       } catch {
         return null;
       }
 
-      let ast: ReturnType<typeof parse>;
-      try {
-        ast = parse(src, {
-          sourceType: 'module',
-          plugins: ['typescript', 'jsx', 'decorators-legacy'],
-          errorRecovery: true,
-        });
-      } catch {
-        return null;
-      }
+      const ast = parseSource(src);
+      if (!ast) return null;
 
       const hints: AnnotationHint[] = [];
 
@@ -125,10 +146,7 @@ export async function scanForAnnotations(projectRoot: string): Promise<FileAnnot
 
       if (hints.length === 0) return null;
       return { filePath: path.relative(projectRoot, filePath), hints };
-    })
-  );
-
-  return fileResults.filter((r): r is FileAnnotations => r !== null);
+  };
 }
 
 export function renderAnnotationGuide(files: FileAnnotations[]): string {
@@ -165,23 +183,40 @@ export function renderAnnotationGuide(files: FileAnnotations[]): string {
     return lines.join('\n') + '\n';
   }
 
+  let bytes = lines.join('\n').length;
+  let rendered = 0;
+
   for (const file of files) {
-    lines.push(`## ${file.filePath}`, '');
+    if (bytes > MAX_GUIDE_BYTES) break;
+
+    const fileLines: string[] = [`## ${file.filePath}`, ''];
     for (const hint of file.hints) {
       if (hint.type === 'prop') {
-        lines.push(
+        fileLines.push(
           `- Wrap prop \`${hint.propName}\` on \`<${hint.elementName}>\` (line ${hint.line}): ` +
           `\`<AIContent label="${hint.propName}">{${hint.propName}}</AIContent>\``
         );
       } else {
         const ellipsis = hint.preview.length === 60 ? '...' : '';
-        lines.push(
+        fileLines.push(
           `- Wrap literal "${hint.preview}${ellipsis}" (line ${hint.line}): ` +
           `\`<AIContent>${hint.preview}${ellipsis}</AIContent>\``
         );
       }
     }
-    lines.push('');
+    fileLines.push('');
+
+    lines.push(...fileLines);
+    bytes += fileLines.join('\n').length + 1;
+    rendered++;
+  }
+
+  if (rendered < files.length) {
+    lines.push(
+      `> **Guide truncated:** showing ${rendered} of ${files.length} files with candidates. ` +
+      'Add patterns to `.telogenignore` to narrow the scan.',
+      ''
+    );
   }
 
   return lines.join('\n').trimEnd() + '\n';

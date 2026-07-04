@@ -257,3 +257,70 @@ describe('renderAnnotationGuide', () => {
     expect(out).toContain('## src/B.tsx');
   });
 });
+
+describe('scan bounds', () => {
+  test('default-ignored build output dirs are excluded', async () => {
+    const component = `
+      export function X() {
+        return <Card title="Some extractable content here" />;
+      }
+    `;
+    const root = await mkFixture({
+      'build/gen.tsx': component,
+      'out/gen.tsx': component,
+      'coverage/gen.tsx': component,
+      '.turbo/gen.tsx': component,
+      '.vercel/gen.tsx': component,
+      'storybook-static/gen.tsx': component,
+      'src/Real.tsx': component,
+    });
+    try {
+      const files = await scanForAnnotations(root);
+      expect(files.map(f => f.filePath)).toEqual([path.join('src', 'Real.tsx')]);
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('oversized files are skipped', async () => {
+    const big =
+      `export function Big() { return <Card title="Padded component body" />; }\n` +
+      `// ${'x'.repeat(600 * 1024)}\n`;
+    const root = await mkFixture({
+      'src/Big.tsx': big,
+      'src/Small.tsx': `export function S() { return <Card title="Regular sized component" />; }`,
+    });
+    try {
+      const files = await scanForAnnotations(root);
+      expect(files.map(f => f.filePath)).toEqual([path.join('src', 'Small.tsx')]);
+    } finally {
+      await cleanUp(root);
+    }
+  });
+});
+
+describe('guide size cap', () => {
+  test('truncates with a note when the guide exceeds the size cap', () => {
+    const files: FileAnnotations[] = Array.from({ length: 5000 }, (_, i) => ({
+      filePath: `components/Component${i}.tsx`,
+      hints: [
+        { type: 'prop', elementName: 'Card', propName: 'title', line: 1 },
+        { type: 'literal', parentElement: 'p', preview: 'Some very long literal text preview that pads the guide', line: 2 },
+      ],
+    }));
+    const guide = renderAnnotationGuide(files);
+    expect(guide.length).toBeLessThan(400 * 1024);
+    expect(guide).toContain('**Guide truncated:**');
+    expect(guide).toMatch(/showing \d+ of 5000 files/);
+  });
+
+  test('no truncation note under the cap', () => {
+    const files: FileAnnotations[] = [
+      {
+        filePath: 'src/One.tsx',
+        hints: [{ type: 'prop', elementName: 'Card', propName: 'title', line: 1 }],
+      },
+    ];
+    expect(renderAnnotationGuide(files)).not.toContain('Guide truncated');
+  });
+});

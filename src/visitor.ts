@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { parse } from '@babel/parser';
+import { parseSource } from './parse.js';
 import _traverse from '@babel/traverse';
 // @babel/traverse is CommonJS; in ESM bundles the function is on .default
 const traverse = ((_traverse as any).default ?? _traverse) as typeof _traverse;
@@ -51,14 +51,8 @@ const CONTENT_PROPS = new Set([
 export async function extractContent(filePath: string, skipComponents?: Set<string>): Promise<ExtractedContent> {
   const src = await fs.readFile(filePath, 'utf-8');
 
-  let ast: ReturnType<typeof parse>;
-  try {
-    ast = parse(src, {
-      sourceType: 'module',
-      plugins: ['typescript', 'jsx', 'decorators-legacy'],
-      errorRecovery: true,
-    });
-  } catch {
+  const ast = parseSource(src);
+  if (!ast) {
     // Unrecoverable parse error — return empty
     return empty();
   }
