@@ -363,3 +363,18 @@ describe('coverage summary', () => {
     }
   });
 });
+
+describe('MDX hint', () => {
+  test('all-MDX app dir mentions MDX in the no-routes error', async () => {
+    const root = await mkFixture({
+      'app/page.mdx': '# Hello',
+      'app/notes/page.mdx': '# Notes',
+    });
+    try {
+      await expect(run(root, ['--out', 'out']))
+        .rejects.toThrow(/2 \.mdx pages — MDX routes aren't supported yet/);
+    } finally {
+      await cleanUp(root);
+    }
+  });
+});

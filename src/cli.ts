@@ -127,7 +127,13 @@ Options:
   }
 
   if (routes.length === 0) {
-    throw new KnownError('no static routes found — nothing to generate');
+    const mdxCount = await countMdxPages(projectRoot);
+    throw new KnownError(
+      'no static routes found — nothing to generate' +
+        (mdxCount > 0
+          ? ` (found ${mdxCount} .mdx page${mdxCount === 1 ? '' : 's'} — MDX routes aren't supported yet)`
+          : '')
+    );
   }
 
   const outDir = path.resolve(projectRoot, flags.out);
@@ -220,6 +226,20 @@ Options:
         buildIssueUrl(VERSION, errors)
     );
   }
+}
+
+/**
+ * All-MDX sites (increasingly common for blogs) would otherwise get a bare
+ * "no static routes found" that reads like a bug rather than a boundary.
+ */
+async function countMdxPages(projectRoot: string): Promise<number> {
+  const { detectRouter, toGlobPattern } = await import('./router.js');
+  const { routerDir, router } = detectRouter(projectRoot);
+  if (!routerDir) return 0;
+  const fg = (await import('fast-glob')).default;
+  const suffix = router === 'app' ? '/**/page.{mdx,md}' : '/**/*.{mdx,md}';
+  const files = await fg(toGlobPattern(routerDir, suffix), { onlyFiles: true });
+  return files.length;
 }
 
 /**
