@@ -1,0 +1,52 @@
+name: Bug report
+description: telogen crashed or produced wrong output
+labels: [bug]
+body:
+  - type: input
+    id: telogen-version
+    attributes:
+      label: telogen version
+      description: Printed on the first line of every run (`telogen vX.Y.Z`)
+      placeholder: "0.1.5"
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      placeholder: "node --version"
+    validations:
+      required: true
+  - type: input
+    id: next-version
+    attributes:
+      label: Next.js version
+      placeholder: "from your package.json"
+  - type: dropdown
+    id: router
+    attributes:
+      label: Router
+      options:
+        - App Router (app/)
+        - Pages Router (pages/)
+        - src/app
+        - src/pages
+        - Not sure
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 15 / Ubuntu 24.04 / Windows 11"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Paste the full CLI output. If telogen printed a pre-filled issue link, most of this is already filled in for you.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The route file (or a trimmed version of it) that triggers the problem, if you can share it.
+      render: tsx
