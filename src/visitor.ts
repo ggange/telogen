@@ -17,6 +17,12 @@ export interface ExtractedContent {
   description: string | null;
   /** generateMetadata() was detected — description unavailable statically */
   hasDynamicMetadata: boolean;
+  /**
+   * babel could not parse the file at all (even with errorRecovery).
+   * Distinct from a page that genuinely has no extractable content: this is
+   * a telogen limitation the CLI must surface, not bucket as "mostly empty".
+   */
+  parseFailed: boolean;
 }
 
 export interface ContentBlock {
@@ -53,8 +59,7 @@ export async function extractContent(filePath: string, skipComponents?: Set<stri
 
   const ast = parseSource(src);
   if (!ast) {
-    // Unrecoverable parse error — return empty
-    return empty();
+    return { ...empty(), parseFailed: true };
   }
 
   const result: ExtractedContent = {
@@ -63,6 +68,7 @@ export async function extractContent(filePath: string, skipComponents?: Set<stri
     title: null,
     description: null,
     hasDynamicMetadata: false,
+    parseFailed: false,
   };
 
   const skipSet = skipComponents ?? new Set<string>();
@@ -218,5 +224,6 @@ function empty(): ExtractedContent {
     title: null,
     description: null,
     hasDynamicMetadata: false,
+    parseFailed: false,
   };
 }

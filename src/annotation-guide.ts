@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { parseSource } from './parse.js';
+import { mapConcurrent, FILE_CONCURRENCY } from './concurrency.js';
 import _traverse from '@babel/traverse';
 // @babel/traverse is CommonJS; in ESM bundles the function is on .default
 const traverse = ((_traverse as any).default ?? _traverse) as typeof _traverse;
@@ -53,10 +54,6 @@ function normalizeIgnorePattern(pattern: string): string {
   return pattern.replace(/\/$/, '') + '/**';
 }
 
-// Read/parse at most this many files at a time — an unbounded Promise.all
-// over a monorepo-sized file list exhausts file descriptors and memory.
-const SCAN_CONCURRENCY = 32;
-
 // Skip files larger than this; generated bundles and vendored blobs dominate
 // above it and parsing them stalls the scan.
 const MAX_FILE_BYTES = 512 * 1024;
@@ -87,17 +84,12 @@ export async function scanForAnnotations(projectRoot: string): Promise<FileAnnot
     ],
   });
 
-  const fileResults: Array<FileAnnotations | null> = [];
-  for (let i = 0; i < files.length; i += SCAN_CONCURRENCY) {
-    const batch = files.slice(i, i + SCAN_CONCURRENCY);
-    fileResults.push(...(await Promise.all(batch.map(scanFile(projectRoot)))));
-  }
+  const fileResults = await mapConcurrent(files, FILE_CONCURRENCY, f => scanFile(projectRoot, f));
 
   return fileResults.filter((r): r is FileAnnotations => r !== null);
 }
 
-function scanFile(projectRoot: string) {
-  return async (filePath: string): Promise<FileAnnotations | null> => {
+async function scanFile(projectRoot: string, filePath: string): Promise<FileAnnotations | null> {
       let src: string;
       try {
         const stat = await fs.stat(filePath);
@@ -146,7 +138,6 @@ function scanFile(projectRoot: string) {
 
       if (hints.length === 0) return null;
       return { filePath: path.relative(projectRoot, filePath), hints };
-  };
 }
 
 export function renderAnnotationGuide(files: FileAnnotations[]): string {

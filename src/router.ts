@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import fg from 'fast-glob';
+import { KnownError } from './errors.js';
 
 export type Router = 'app' | 'pages' | 'none';
 
@@ -21,6 +22,8 @@ export interface DetectedRoutes {
   skipped: string[];
   duplicates: DuplicateRoute[];
   router: Router;
+  /** absolute path of the detected app/ or pages/ dir; null when router is 'none' */
+  routerDir: string | null;
 }
 
 const PAGE_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js'];
@@ -70,7 +73,7 @@ export function checkNextDependency(projectRoot: string): void {
     ...pkg.peerDependencies,
   };
   if (!('next' in deps)) {
-    throw new Error(
+    throw new KnownError(
       "found an app/ or pages/ directory but no 'next' dependency in package.json — " +
         'this does not look like a Next.js project. If this is a monorepo, run telogen ' +
         'from the app directory (e.g. apps/web).'
@@ -87,7 +90,7 @@ export function toGlobPattern(dir: string, suffix: string): string {
 export async function detectRoutes(projectRoot: string): Promise<DetectedRoutes> {
   const { router, routerDir } = detectRouter(projectRoot);
   if (router === 'none' || !routerDir) {
-    return { routes: [], skipped: [], duplicates: [], router: 'none' };
+    return { routes: [], skipped: [], duplicates: [], router: 'none', routerDir: null };
   }
 
   checkNextDependency(projectRoot);
@@ -95,6 +98,30 @@ export async function detectRoutes(projectRoot: string): Promise<DetectedRoutes>
   return router === 'app'
     ? detectAppRouterRoutes(routerDir)
     : detectPagesRouterRoutes(routerDir);
+}
+
+// Markdown counterparts of the code-page globs below — kept adjacent so the
+// route-file conventions live in exactly one module.
+const APP_MD_SUFFIX = '/**/page.{mdx,md}';
+const PAGES_MD_SUFFIX = '/**/*.{mdx,md}';
+
+// Non-route markdown that commonly lives inside pages/ trees.
+const NON_ROUTE_MD = /^(readme|changelog|contributing|license)$/i;
+
+/**
+ * Counts .md/.mdx files that look like route pages, for the "no static
+ * routes found" hint — all-markdown sites (MDX blogs) should hear "markdown
+ * routes aren't supported yet", not a bare error that reads like a bug.
+ */
+export async function countMarkdownPages(routerDir: string, router: Router): Promise<number> {
+  if (router === 'none') return 0;
+  const suffix = router === 'app' ? APP_MD_SUFFIX : PAGES_MD_SUFFIX;
+  const files = await fg(toGlobPattern(routerDir, suffix), { onlyFiles: true });
+  if (router === 'app') return files.length;
+  return files.filter(f => {
+    const { name } = path.parse(f);
+    return !NON_ROUTE_MD.test(name) && !name.startsWith('_');
+  }).length;
 }
 
 /** Keeps the first file per URL; later collisions go to `duplicates`. */
@@ -146,7 +173,7 @@ async function detectAppRouterRoutes(appDir: string): Promise<DetectedRoutes> {
   }
 
   const deduped = dedupeByUrl(routes);
-  return { ...deduped, skipped, router: 'app' };
+  return { ...deduped, skipped, router: 'app', routerDir: appDir };
 }
 
 async function detectPagesRouterRoutes(pagesDir: string): Promise<DetectedRoutes> {
@@ -182,5 +209,5 @@ async function detectPagesRouterRoutes(pagesDir: string): Promise<DetectedRoutes
   }
 
   const deduped = dedupeByUrl(routes);
-  return { ...deduped, skipped, router: 'pages' };
+  return { ...deduped, skipped, router: 'pages', routerDir: pagesDir };
 }

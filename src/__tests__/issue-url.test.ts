@@ -1,4 +1,5 @@
 import { describe, test, expect } from 'vitest';
+import * as os from 'os';
 import { buildIssueUrl, stripAbsolutePaths } from '../issue-url.js';
 
 describe('stripAbsolutePaths', () => {
@@ -19,6 +20,40 @@ describe('stripAbsolutePaths', () => {
 
   test('leaves single-segment route URLs like /about untouched', () => {
     expect(stripAbsolutePaths('route /about failed')).toBe('route /about failed');
+  });
+
+  test('leaves two-segment route URLs like /blog/post untouched', () => {
+    expect(stripAbsolutePaths('GET /blog/post 500')).toBe('GET /blog/post 500');
+  });
+
+  test('leaves relative import specifiers untouched', () => {
+    const msg = "Cannot find module './components/Button' from '../lib/util'";
+    expect(stripAbsolutePaths(msg)).toBe(msg);
+  });
+
+  test('erases the home directory (and thus the username) even around spaces', () => {
+    // Unquoted: the home prefix — the part identifying the user — is erased.
+    const out = stripAbsolutePaths(`crash in ${os.homedir()}/some dir/page.tsx`);
+    expect(out).not.toContain(os.homedir());
+    // Quoted (how fs errors report paths): the whole path collapses.
+    const quoted = stripAbsolutePaths(`EACCES: open '${os.homedir()}/secret client dir/page.tsx'`);
+    expect(quoted).not.toContain('secret client');
+    expect(quoted).toContain("'page.tsx'");
+  });
+
+  test('strips quoted posix paths containing spaces', () => {
+    expect(stripAbsolutePaths("EACCES: permission denied, open '/Users/jane doe/site/app/page.tsx'"))
+      .toBe("EACCES: permission denied, open 'page.tsx'");
+  });
+
+  test('strips quoted Windows paths containing spaces', () => {
+    expect(stripAbsolutePaths(`failed on "C:\\Users\\Jane Doe\\site\\app\\page.tsx" here`))
+      .toBe('failed on "page.tsx" here');
+  });
+
+  test('strips UNC paths', () => {
+    expect(stripAbsolutePaths('failed \\\\corp-server\\share\\jane\\site\\page.tsx here'))
+      .toBe('failed page.tsx here');
   });
 });
 

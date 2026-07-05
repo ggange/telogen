@@ -372,7 +372,7 @@ describe('MDX hint', () => {
     });
     try {
       await expect(run(root, ['--out', 'out']))
-        .rejects.toThrow(/2 \.mdx pages — MDX routes aren't supported yet/);
+        .rejects.toThrow(/2 markdown pages \(\.md\/\.mdx\) — Markdown\/MDX routes aren't supported yet/);
     } finally {
       await cleanUp(root);
     }

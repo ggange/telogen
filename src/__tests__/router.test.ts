@@ -284,3 +284,36 @@ describe('router=none fallback', () => {
     }
   });
 });
+
+describe('countMarkdownPages', () => {
+  test('counts app-router page.mdx/page.md files', async () => {
+    const root = await mkFixture({
+      'app/page.mdx': '# Hi',
+      'app/notes/page.md': '# Notes',
+      'app/README.md': 'not a page file name for app router',
+    });
+    try {
+      const { countMarkdownPages, detectRouter } = await import('../router.js');
+      const { routerDir, router } = detectRouter(root);
+      expect(await countMarkdownPages(routerDir!, router)).toBe(2);
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('pages router: ignores README/CHANGELOG-style and _-prefixed markdown', async () => {
+    const root = await mkFixture({
+      'pages/README.md': 'docs',
+      'pages/CHANGELOG.md': 'docs',
+      'pages/_notes.md': 'private',
+      'pages/blog.mdx': '# Blog',
+    });
+    try {
+      const { countMarkdownPages, detectRouter } = await import('../router.js');
+      const { routerDir, router } = detectRouter(root);
+      expect(await countMarkdownPages(routerDir!, router)).toBe(1);
+    } finally {
+      await cleanUp(root);
+    }
+  });
+});

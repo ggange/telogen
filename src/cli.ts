@@ -2,8 +2,9 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { realpathSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { detectRoutes } from './router.js';
+import { detectRoutes, countMarkdownPages } from './router.js';
 import { extractContent, type ExtractedContent } from './visitor.js';
+import { mapConcurrent, FILE_CONCURRENCY } from './concurrency.js';
 import { renderLlmsTxt, classifyLlmsTxt, urlToTitle, type LlmsTxtEntry } from './llmstxt.js';
 import { scanForAnnotations, renderAnnotationGuide } from './annotation-guide.js';
 import { KnownError, UsageError } from './errors.js';
@@ -109,7 +110,7 @@ Options:
 
   console.log(`telogen v${VERSION}`);
 
-  const { routes, skipped, duplicates, router } = await detectRoutes(projectRoot);
+  const { routes, skipped, duplicates, router, routerDir } = await detectRoutes(projectRoot);
 
   if (router === 'none') {
     throw new KnownError(
@@ -127,11 +128,11 @@ Options:
   }
 
   if (routes.length === 0) {
-    const mdxCount = await countMdxPages(projectRoot);
+    const mdCount = routerDir ? await countMarkdownPages(routerDir, router) : 0;
     throw new KnownError(
       'no static routes found — nothing to generate' +
-        (mdxCount > 0
-          ? ` (found ${mdxCount} .mdx page${mdxCount === 1 ? '' : 's'} — MDX routes aren't supported yet)`
+        (mdCount > 0
+          ? ` (found ${mdCount} markdown page${mdCount === 1 ? '' : 's'} (.md/.mdx) — Markdown/MDX routes aren't supported yet)`
           : '')
     );
   }
@@ -143,22 +144,27 @@ Options:
 
   const skipSet = new Set(flags.skipComponents);
 
-  // Extraction failures are isolated per route: one unparseable file must
-  // never take down the whole run (this is the literal HN first-run path).
-  const results: RouteResult[] = await Promise.all(
-    routes.map(async (route): Promise<RouteResult> => {
-      try {
-        const content = await extractContent(route.filePath, skipSet.size > 0 ? skipSet : undefined);
-        return { route, content, error: null };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.warn(
-          `telogen: failed to extract ${path.relative(projectRoot, route.filePath)}: ${stripAbsolutePaths(message)}`
-        );
+  // Extraction failures are isolated per route: one unreadable or
+  // unparseable file must never take down the whole run (this is the
+  // literal HN first-run path). Bounded like the annotation scan.
+  const results: RouteResult[] = await mapConcurrent(routes, FILE_CONCURRENCY, async (route): Promise<RouteResult> => {
+    const relPath = path.relative(projectRoot, route.filePath);
+    try {
+      const content = await extractContent(route.filePath, skipSet.size > 0 ? skipSet : undefined);
+      if (content.parseFailed) {
+        // Parse failures are telogen limitations, not empty pages — route
+        // them to the same unreachable/bug-report path as read failures.
+        const message = `unrecoverable parse error in ${relPath}`;
+        console.warn(`telogen: failed to extract ${relPath}: unrecoverable parse error`);
         return { route, content: null, error: message };
       }
-    })
-  );
+      return { route, content, error: null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`telogen: failed to extract ${relPath}: ${stripAbsolutePaths(message)}`);
+      return { route, content: null, error: message };
+    }
+  });
 
   // Write .md files
   const llmsTxtEntries: LlmsTxtEntry[] = [];
@@ -226,20 +232,6 @@ Options:
         buildIssueUrl(VERSION, errors)
     );
   }
-}
-
-/**
- * All-MDX sites (increasingly common for blogs) would otherwise get a bare
- * "no static routes found" that reads like a bug rather than a boundary.
- */
-async function countMdxPages(projectRoot: string): Promise<number> {
-  const { detectRouter, toGlobPattern } = await import('./router.js');
-  const { routerDir, router } = detectRouter(projectRoot);
-  if (!routerDir) return 0;
-  const fg = (await import('fast-glob')).default;
-  const suffix = router === 'app' ? '/**/page.{mdx,md}' : '/**/*.{mdx,md}';
-  const files = await fg(toGlobPattern(routerDir, suffix), { onlyFiles: true });
-  return files.length;
 }
 
 /**
