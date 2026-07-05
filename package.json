@@ -1,6 +1,6 @@
 {
   "name": "telogen",
-  "version": "0.1.4",
+  "version": "0.1.5-rc.1",
   "description": "Generate AI-readable markdown from your React source. No proxy, no runtime cost.",
   "type": "module",
   "bin": {
