@@ -23,6 +23,21 @@ export interface ExtractedContent {
    * a telogen limitation the CLI must surface, not bucket as "mostly empty".
    */
   parseFailed: boolean;
+  /** import bindings by local name — feeds one-hop component extraction */
+  imports: Record<string, ImportBinding>;
+  /**
+   * Capitalized JSX components rendered outside nav/skipped regions, in
+   * first-use order. The one-hop resolver extracts from the files these
+   * names import to.
+   */
+  componentsUsed: string[];
+}
+
+export interface ImportBinding {
+  /** module specifier as written ('./Pricing', '@/components/Pricing') */
+  source: string;
+  /** exported name being imported; 'default' or '*' for those forms */
+  imported: string;
 }
 
 export interface ContentBlock {
@@ -69,13 +84,30 @@ export async function extractContent(filePath: string, skipComponents?: Set<stri
     description: null,
     hasDynamicMetadata: false,
     parseFailed: false,
+    imports: {},
+    componentsUsed: [],
   };
 
   const skipSet = skipComponents ?? new Set<string>();
+  const seenComponents = new Set<string>();
   let navDepth = 0;
   let skipDepth = 0;
 
   traverse(ast, {
+    ImportDeclaration(nodePath) {
+      const source = nodePath.node.source.value;
+      for (const spec of nodePath.node.specifiers) {
+        if (t.isImportDefaultSpecifier(spec)) {
+          result.imports[spec.local.name] = { source, imported: 'default' };
+        } else if (t.isImportSpecifier(spec)) {
+          const imported = t.isIdentifier(spec.imported) ? spec.imported.name : spec.imported.value;
+          result.imports[spec.local.name] = { source, imported };
+        } else if (t.isImportNamespaceSpecifier(spec)) {
+          result.imports[spec.local.name] = { source, imported: '*' };
+        }
+      }
+    },
+
     // ── Dynamic detection ────────────────────────────────────────
 
     // 1. async default export function → primary App Router signal
@@ -155,7 +187,14 @@ export async function extractContent(filePath: string, skipComponents?: Set<stri
       enter(nodePath) {
         const name = getElementName(nodePath.node.openingElement.name);
         if (skipSet.has(name)) { skipDepth++; return; }
-        if (NAV_ELEMENTS.has(name)) navDepth++;
+        if (NAV_ELEMENTS.has(name)) { navDepth++; return; }
+        if (
+          navDepth === 0 && skipDepth === 0 &&
+          /^[A-Z]/.test(name) && !seenComponents.has(name)
+        ) {
+          seenComponents.add(name);
+          result.componentsUsed.push(name);
+        }
       },
       exit(nodePath) {
         const name = getElementName(nodePath.node.openingElement.name);
@@ -225,5 +264,7 @@ function empty(): ExtractedContent {
     description: null,
     hasDynamicMetadata: false,
     parseFailed: false,
+    imports: {},
+    componentsUsed: [],
   };
 }

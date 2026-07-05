@@ -4,6 +4,7 @@ import { realpathSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { detectRoutes, countMarkdownPages } from './router.js';
 import { extractContent, type ExtractedContent } from './visitor.js';
+import { createResolver, type Resolver } from './resolve.js';
 import { mapConcurrent, FILE_CONCURRENCY } from './concurrency.js';
 import { renderLlmsTxt, classifyLlmsTxt, urlToTitle, type LlmsTxtEntry } from './llmstxt.js';
 import { scanForAnnotations, renderAnnotationGuide } from './annotation-guide.js';
@@ -143,6 +144,10 @@ Options:
   await guardExistingLlmsTxt(outDir, flags.force, path.relative(projectRoot, outDir));
 
   const skipSet = new Set(flags.skipComponents);
+  const resolver = createResolver(projectRoot);
+  // One extraction per component file for the whole run; the Map doubles as
+  // the cycle guard (a file already being extracted is never re-entered).
+  const componentMemo = new Map<string, Promise<ExtractedContent>>();
 
   // Extraction failures are isolated per route: one unreadable or
   // unparseable file must never take down the whole run (this is the
@@ -158,6 +163,7 @@ Options:
         console.warn(`telogen: failed to extract ${relPath}: unrecoverable parse error`);
         return { route, content: null, error: message };
       }
+      await expandOneHop(content, route.filePath, resolver, componentMemo, skipSet);
       return { route, content, error: null };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -231,6 +237,45 @@ Options:
         'This is likely a telogen bug — you can report it with one click:\n' +
         buildIssueUrl(VERSION, errors)
     );
+  }
+}
+
+/**
+ * One-hop import extraction: for each custom component a route renders,
+ * resolve the import (relative, tsconfig/jsconfig alias, or barrel) and
+ * append that file's extracted content in usage order. Exactly one hop —
+ * the component's own imports are never followed. Anything unresolvable
+ * (node_modules, missing file, namespace import) is skipped silently: this
+ * is best-effort enrichment, never a failure source.
+ */
+async function expandOneHop(
+  content: ExtractedContent,
+  routeFile: string,
+  resolver: Resolver,
+  memo: Map<string, Promise<ExtractedContent>>,
+  skipSet: Set<string>
+): Promise<void> {
+  for (const name of content.componentsUsed) {
+    const binding = content.imports[name];
+    if (!binding) continue;
+    const file = resolver.resolve(binding, routeFile);
+    if (!file || file === routeFile) continue;
+
+    let child: ExtractedContent;
+    try {
+      let pending = memo.get(file);
+      if (!pending) {
+        pending = extractContent(file, skipSet.size > 0 ? skipSet : undefined);
+        memo.set(file, pending);
+      }
+      child = await pending;
+    } catch {
+      continue;
+    }
+    if (child.parseFailed) continue;
+
+    content.blocks.push(...child.blocks);
+    if (child.isDynamic) content.isDynamic = true;
   }
 }
 
