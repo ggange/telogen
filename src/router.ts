@@ -26,7 +26,7 @@ export interface DetectedRoutes {
   routerDir: string | null;
 }
 
-const PAGE_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js'];
+export const PAGE_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js'];
 
 // Segments matching [param] or [...slug] or [[...slug]]
 const DYNAMIC_SEGMENT = /\[.*?\]/;

@@ -25,12 +25,6 @@ export interface ExtractedContent {
   parseFailed: boolean;
   /** import bindings by local name — feeds one-hop component extraction */
   imports: Record<string, ImportBinding>;
-  /**
-   * Capitalized JSX components rendered outside nav/skipped regions, in
-   * first-use order. The one-hop resolver extracts from the files these
-   * names import to.
-   */
-  componentsUsed: string[];
 }
 
 export interface ImportBinding {
@@ -41,9 +35,16 @@ export interface ImportBinding {
 }
 
 export interface ContentBlock {
-  type: 'heading' | 'paragraph' | 'listitem' | 'text';
+  type: 'heading' | 'paragraph' | 'listitem' | 'text' | 'component';
   level?: 1 | 2 | 3 | 4 | 5 | 6;
   text: string;
+  /**
+   * Only set when type is 'component': the local import name to resolve
+   * for one-hop extraction. cli.ts replaces this placeholder — in place,
+   * preserving document order — with the resolved file's own blocks, or
+   * drops it silently if the import can't be resolved.
+   */
+  componentName?: string;
 }
 
 // Hooks that are known to be non-data-fetching
@@ -85,11 +86,9 @@ export async function extractContent(filePath: string, skipComponents?: Set<stri
     hasDynamicMetadata: false,
     parseFailed: false,
     imports: {},
-    componentsUsed: [],
   };
 
   const skipSet = skipComponents ?? new Set<string>();
-  const seenComponents = new Set<string>();
   let navDepth = 0;
   let skipDepth = 0;
 
@@ -185,15 +184,21 @@ export async function extractContent(filePath: string, skipComponents?: Set<stri
     // is in both sets.
     JSXElement: {
       enter(nodePath) {
-        const name = getElementName(nodePath.node.openingElement.name);
+        const nameNode = nodePath.node.openingElement.name;
+        const name = getElementName(nameNode);
         if (skipSet.has(name)) { skipDepth++; return; }
         if (NAV_ELEMENTS.has(name)) { navDepth++; return; }
         if (
           navDepth === 0 && skipDepth === 0 &&
-          /^[A-Z]/.test(name) && !seenComponents.has(name)
+          // Only plain identifiers (<Pricing/>) are one-hop candidates —
+          // member expressions (<Ctx.Provider/>, <motion.div/>) collapse to
+          // their object name via getElementName and would resolve the
+          // wrong (or an unrelated) import.
+          t.isJSXIdentifier(nameNode) && /^[A-Z]/.test(name)
         ) {
-          seenComponents.add(name);
-          result.componentsUsed.push(name);
+          // Placeholder in document order; cli.ts replaces it with the
+          // resolved component's own blocks (or drops it if unresolved).
+          result.blocks.push({ type: 'component', text: '', componentName: name });
         }
       },
       exit(nodePath) {
@@ -265,6 +270,5 @@ function empty(): ExtractedContent {
     hasDynamicMetadata: false,
     parseFailed: false,
     imports: {},
-    componentsUsed: [],
   };
 }

@@ -31,11 +31,6 @@ release.
 - Wrap literal "48-hour delivery in the EU and US" (line 13): `<AIContent>48-hour delivery in the EU and US</AIContent>`
 - Wrap literal "Lifetime replacement guarantee" (line 14): `<AIContent>Lifetime replacement guarantee</AIContent>`
 
-## components/PricingTable.tsx
-
-- Wrap prop `title` on `<section>` (line 3): `<AIContent label="title">{title}</AIContent>`
-- Wrap literal "Every plan includes the lifetime replacement guarantee and 4..." (line 5): `<AIContent>Every plan includes the lifetime replacement guarantee and 4...</AIContent>`
-
 ## app/about/page.tsx
 
 - Wrap literal "We started in a garage in Turin and never lost the workshop ..." (line 10): `<AIContent>We started in a garage in Turin and never lost the workshop ...</AIContent>`

@@ -3,7 +3,7 @@ import * as fs from 'fs/promises';
 import { realpathSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { detectRoutes, countMarkdownPages } from './router.js';
-import { extractContent, type ExtractedContent } from './visitor.js';
+import { extractContent, type ExtractedContent, type ContentBlock } from './visitor.js';
 import { createResolver, type Resolver } from './resolve.js';
 import { mapConcurrent, FILE_CONCURRENCY } from './concurrency.js';
 import { renderLlmsTxt, classifyLlmsTxt, urlToTitle, type LlmsTxtEntry } from './llmstxt.js';
@@ -220,7 +220,23 @@ Options:
   // Write ai-annotation-guide.md — never fatal: a pathological repo layout
   // must not kill the run after the main output already succeeded.
   try {
-    const annotations = await scanForAnnotations(projectRoot);
+    // Files one-hop extraction already pulled content from must not also
+    // appear in the guide as "can't extract" — componentMemo (keyed by
+    // resolved absolute path) doubles as that record; every entry was
+    // already awaited during route processing, so this is instant.
+    const oneHopFiles = new Set<string>();
+    for (const [file, pending] of componentMemo) {
+      try {
+        const child = await pending;
+        if (!child.parseFailed) oneHopFiles.add(path.relative(projectRoot, file));
+      } catch {
+        // resolved but unreadable — already warned about via its route;
+        // nothing to exclude from the guide since nothing was extracted.
+      }
+    }
+
+    const annotations = (await scanForAnnotations(projectRoot))
+      .filter(a => !oneHopFiles.has(a.filePath));
     const guide = renderAnnotationGuide(annotations);
     await fs.writeFile(path.join(projectRoot, 'ai-annotation-guide.md'), guide, 'utf-8');
     console.log('telogen: wrote ai-annotation-guide.md');
@@ -241,12 +257,14 @@ Options:
 }
 
 /**
- * One-hop import extraction: for each custom component a route renders,
- * resolve the import (relative, tsconfig/jsconfig alias, or barrel) and
- * append that file's extracted content in usage order. Exactly one hop —
- * the component's own imports are never followed. Anything unresolvable
- * (node_modules, missing file, namespace import) is skipped silently: this
- * is best-effort enrichment, never a failure source.
+ * One-hop import extraction: the visitor leaves a 'component' placeholder
+ * block at each rendered component's position; this replaces each one
+ * in place with the resolved file's own blocks, preserving document
+ * order (a component between two headings lands between them, not at the
+ * end). Exactly one hop — the component's own imports are never followed.
+ * Anything unresolvable (node_modules, missing file, namespace import,
+ * parse failure) drops the placeholder silently: this is best-effort
+ * enrichment, never a failure source.
  */
 async function expandOneHop(
   content: ExtractedContent,
@@ -255,11 +273,15 @@ async function expandOneHop(
   memo: Map<string, Promise<ExtractedContent>>,
   skipSet: Set<string>
 ): Promise<void> {
-  for (const name of content.componentsUsed) {
-    const binding = content.imports[name];
-    if (!binding) continue;
-    const file = resolver.resolve(binding, routeFile);
-    if (!file || file === routeFile) continue;
+  const expanded: ContentBlock[] = [];
+  for (const block of content.blocks) {
+    if (block.type !== 'component') {
+      expanded.push(block);
+      continue;
+    }
+    const binding = content.imports[block.componentName!];
+    const file = binding ? resolver.resolve(binding, routeFile) : null;
+    if (!file || file === routeFile) continue; // drop unresolved placeholder
 
     let child: ExtractedContent;
     try {
@@ -274,9 +296,10 @@ async function expandOneHop(
     }
     if (child.parseFailed) continue;
 
-    content.blocks.push(...child.blocks);
+    expanded.push(...child.blocks.filter(b => b.type !== 'component'));
     if (child.isDynamic) content.isDynamic = true;
   }
+  content.blocks = expanded;
 }
 
 /**
@@ -322,6 +345,7 @@ function renderMarkdown(
   }
 
   for (const block of content.blocks) {
+    if (block.type === 'component') continue; // unexpanded placeholder — never rendered
     if (block.type === 'heading' && block.level) {
       lines.push('#'.repeat(block.level) + ' ' + block.text, '');
     } else if (block.type === 'listitem') {

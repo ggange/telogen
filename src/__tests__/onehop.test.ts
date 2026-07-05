@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
@@ -209,6 +209,147 @@ describe('one-hop import extraction', () => {
       expect(md).toContain('Live market prices');
       expect(md).toContain('<!-- dynamic content');
     } finally {
+      await cleanUp(root);
+    }
+  });
+});
+
+describe('one-hop review fixes', () => {
+  test('component content is spliced in at its JSX position, not appended after page text', async () => {
+    const root = await mkFixture({
+      'app/page.tsx': `
+        import { Pricing } from './Pricing';
+        export default function Page() {
+          return <main><Pricing /><h1>Contact us</h1></main>;
+        }
+      `,
+      'app/Pricing.tsx': PRICING,
+    });
+    try {
+      await run(root, ['--out', 'out']);
+      const md = await readIndexMd(root);
+      const pricingIdx = md.indexOf('Simple pricing');
+      const contactIdx = md.indexOf('Contact us');
+      expect(pricingIdx).toBeGreaterThan(-1);
+      expect(contactIdx).toBeGreaterThan(-1);
+      expect(pricingIdx).toBeLessThan(contactIdx);
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('default import is followed through a barrel re-export', async () => {
+    const root = await mkFixture({
+      'app/page.tsx': `
+        import Hero from '../components';
+        export default function Page() { return <Hero />; }
+      `,
+      'components/index.ts': `export { default } from './Hero';`,
+      'components/Hero.tsx': `export default function Hero() { return <h1>Welcome to the product</h1>; }`,
+    });
+    try {
+      await run(root, ['--out', 'out']);
+      expect(await readIndexMd(root)).toContain('# Welcome to the product');
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('member-expression JSX (namespace/context) is not treated as a one-hop component', async () => {
+    const root = await mkFixture({
+      'app/page.tsx': `
+        import { Ctx } from './ctx';
+        export default function Page() {
+          return <Ctx.Provider><h1>Real page content</h1></Ctx.Provider>;
+        }
+      `,
+      'app/ctx.tsx': `export const Ctx = { Provider: () => null, secretConfigValue: 'internal-only-string' };`,
+    });
+    try {
+      await run(root, ['--out', 'out']);
+      const md = await readIndexMd(root);
+      expect(md).toContain('# Real page content');
+      expect(md).not.toContain('internal-only-string');
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('NodeNext-style .js specifier resolves to the .tsx source', async () => {
+    const root = await mkFixture({
+      'app/page.tsx': `
+        import { Pricing } from './Pricing.js';
+        export default function Page() { return <main><h1>Home</h1><Pricing /></main>; }
+      `,
+      'app/Pricing.tsx': PRICING,
+    });
+    try {
+      await run(root, ['--out', 'out']);
+      expect(await readIndexMd(root)).toContain('Simple pricing');
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('a broken tsconfig extends chain degrades to no aliases instead of crashing the run', async () => {
+    const root = await mkFixture({
+      'tsconfig.json': JSON.stringify({ extends: './does-not-exist.json' }),
+      'app/page.tsx': `export default function Page() { return <h1>Still generates</h1>; }`,
+    });
+    try {
+      await run(root, ['--out', 'out']); // must not throw
+      expect(await readIndexMd(root)).toContain('# Still generates');
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('a circular tsconfig extends chain degrades to no aliases instead of crashing the run', async () => {
+    const root = await mkFixture({
+      'tsconfig.json': JSON.stringify({ extends: './tsconfig.json' }),
+      'app/page.tsx': `export default function Page() { return <h1>Still generates</h1>; }`,
+    });
+    try {
+      await run(root, ['--out', 'out']);
+      expect(await readIndexMd(root)).toContain('# Still generates');
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('one-hop-extracted component files are excluded from the annotation guide', async () => {
+    const root = await mkFixture({
+      'app/page.tsx': `
+        import { Pricing } from './Pricing';
+        export default function Page() { return <main><h1>Home</h1><Pricing /></main>; }
+      `,
+      'app/Pricing.tsx': PRICING,
+    });
+    try {
+      await run(root, ['--out', 'out']);
+      const guide = await fs.readFile(path.join(root, 'ai-annotation-guide.md'), 'utf-8');
+      expect(guide).not.toContain('lifetime guarantee');
+      expect(guide).not.toContain('Pricing.tsx');
+    } finally {
+      await cleanUp(root);
+    }
+  });
+
+  test('an unresolvable component keeps the page out of "with content" only if truly empty', async () => {
+    const root = await mkFixture({
+      'app/page.tsx': `
+        import { Gone } from './DoesNotExist';
+        export default function Page() { return <Gone />; }
+      `,
+    });
+    const logs: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((m: string) => { logs.push(String(m)); });
+    try {
+      await run(root, ['--out', 'out']);
+      const summary = logs.find(l => l.includes(' → '));
+      expect(summary).toContain('1 mostly empty');
+    } finally {
+      spy.mockRestore();
       await cleanUp(root);
     }
   });
