@@ -1,5 +1,5 @@
 {
-  "name": "@telogen/react",
+  "name": "telogen-react",
   "version": "0.0.1",
   "description": "AIContent component for telogen — companion package. The component ships with telogen Phase 2.",
   "type": "module",

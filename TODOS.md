@@ -38,7 +38,7 @@ development typically one size smaller. Priority: P1 (next up) / P2 / P3.
 - **What:** Separate package, separate plugin API; ship independently.
 - **Effort:** M
 
-### @telogen/react full <AIContent> implementation
+### telogen-react full <AIContent> implementation
 - **What:** v1 component (Fragment passthrough) + CLI-side extraction via
   import-binding tracking (handles aliased imports; do NOT hardcode the
   string "AIContent"). Spec in 2026-06-29 CEO plan.
@@ -56,16 +56,16 @@ development typically one size smaller. Priority: P1 (next up) / P2 / P3.
   (~/.gstack/projects/ggange-agentify/ceo-plans/).
 - **Effort:** M
 
-### CI publish pipeline for @telogen/react
+### CI publish pipeline for telogen-react
 - **What:** Wire `packages/react` into the tag-triggered publish workflow
   (same provenance flow `publish.yml` gives the root package; scoped tag
   like `react-v*` or a workspace-aware release step).
 - **Why:** The placeholder is a one-off manual `npm publish`; real
-  @telogen/react releases (Phase 2 AIContent) need the same repeatable,
+  telogen-react releases (Phase 2 AIContent) need the same repeatable,
   provenance-signed path as telogen itself.
 - **Context:** Flagged in the 2026-07-04 eng review distribution check —
   `publish.yml` only builds/publishes the root package.
-- **Depends on:** @telogen/react real implementation starting.
+- **Depends on:** telogen-react real implementation starting.
 - **Effort:** S
 
 ## P3

@@ -1,4 +1,4 @@
-# @telogen/react
+# telogen-react
 
 > Companion package for [telogen](https://github.com/ggange/telogen). The `<AIContent>`
 > component ships here with telogen Phase 2 — it is not published yet.
@@ -11,7 +11,7 @@ with it will let telogen pick it up on the next run.
 ## Planned API
 
 ```tsx
-import { AIContent } from '@telogen/react';
+import { AIContent } from 'telogen-react';
 
 // Wraps any content to make it visible to AI agents via telogen
 function Hero({ title }: { title: string }) {
@@ -30,6 +30,6 @@ extraction.
 ## Timeline
 
 - `telogen` v0.1.0 — annotation guide tells you *where* to add `<AIContent>`
-- `@telogen/react` v0.1.0 — ships the actual component (Phase 2)
+- `telogen-react` v0.1.0 — ships the actual component (Phase 2)
 
 Follow progress at [github.com/ggange/telogen](https://github.com/ggange/telogen).
