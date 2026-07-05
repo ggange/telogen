@@ -155,7 +155,7 @@ export function renderAnnotationGuide(files: FileAnnotations[]): string {
     'impact.** Once it ships, it will mark content for telogen to include in per-route',
     '`.md` files.',
     '',
-    'The `<AIContent>` component (from `@telogen/react`) and the CLI-side support for',
+    'The `<AIContent>` component (from `telogen-react`) and the CLI-side support for',
     'reading it both ship together in telogen Phase 2 — neither exists yet, so the',
     'suggestions below are a preview of where annotation will go, not something to use',
     'today. Watch [github.com/ggange/telogen](https://github.com/ggange/telogen) for the',
