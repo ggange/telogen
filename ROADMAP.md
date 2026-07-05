@@ -19,11 +19,11 @@ imports to read it. Marking content inside your components makes it visible
 to telogen even where heuristics can't reach. The `ai-annotation-guide.md`
 telogen generates today maps where annotation will be useful.
 
-## One-hop import extraction
+## Deeper import extraction
 
-Extend extraction to follow imports one level deep — relative paths,
-tsconfig/jsconfig `paths` aliases, and barrel files — so component-shell
-pages (`return <Pricing />`) produce real content instead of an empty page.
+One-hop import following (relative paths, tsconfig/jsconfig `paths`
+aliases, barrel files) shipped in v0.1.5. Next: configurable depth, so
+content nested more than one component deep is reachable too.
 
 ## Build-platform plugins
 

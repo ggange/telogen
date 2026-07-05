@@ -23,12 +23,28 @@ export interface ExtractedContent {
    * a telogen limitation the CLI must surface, not bucket as "mostly empty".
    */
   parseFailed: boolean;
+  /** import bindings by local name — feeds one-hop component extraction */
+  imports: Record<string, ImportBinding>;
+}
+
+export interface ImportBinding {
+  /** module specifier as written ('./Pricing', '@/components/Pricing') */
+  source: string;
+  /** exported name being imported; 'default' or '*' for those forms */
+  imported: string;
 }
 
 export interface ContentBlock {
-  type: 'heading' | 'paragraph' | 'listitem' | 'text';
+  type: 'heading' | 'paragraph' | 'listitem' | 'text' | 'component';
   level?: 1 | 2 | 3 | 4 | 5 | 6;
   text: string;
+  /**
+   * Only set when type is 'component': the local import name to resolve
+   * for one-hop extraction. cli.ts replaces this placeholder — in place,
+   * preserving document order — with the resolved file's own blocks, or
+   * drops it silently if the import can't be resolved.
+   */
+  componentName?: string;
 }
 
 // Hooks that are known to be non-data-fetching
@@ -69,6 +85,7 @@ export async function extractContent(filePath: string, skipComponents?: Set<stri
     description: null,
     hasDynamicMetadata: false,
     parseFailed: false,
+    imports: {},
   };
 
   const skipSet = skipComponents ?? new Set<string>();
@@ -76,6 +93,20 @@ export async function extractContent(filePath: string, skipComponents?: Set<stri
   let skipDepth = 0;
 
   traverse(ast, {
+    ImportDeclaration(nodePath) {
+      const source = nodePath.node.source.value;
+      for (const spec of nodePath.node.specifiers) {
+        if (t.isImportDefaultSpecifier(spec)) {
+          result.imports[spec.local.name] = { source, imported: 'default' };
+        } else if (t.isImportSpecifier(spec)) {
+          const imported = t.isIdentifier(spec.imported) ? spec.imported.name : spec.imported.value;
+          result.imports[spec.local.name] = { source, imported };
+        } else if (t.isImportNamespaceSpecifier(spec)) {
+          result.imports[spec.local.name] = { source, imported: '*' };
+        }
+      }
+    },
+
     // ── Dynamic detection ────────────────────────────────────────
 
     // 1. async default export function → primary App Router signal
@@ -153,9 +184,22 @@ export async function extractContent(filePath: string, skipComponents?: Set<stri
     // is in both sets.
     JSXElement: {
       enter(nodePath) {
-        const name = getElementName(nodePath.node.openingElement.name);
+        const nameNode = nodePath.node.openingElement.name;
+        const name = getElementName(nameNode);
         if (skipSet.has(name)) { skipDepth++; return; }
-        if (NAV_ELEMENTS.has(name)) navDepth++;
+        if (NAV_ELEMENTS.has(name)) { navDepth++; return; }
+        if (
+          navDepth === 0 && skipDepth === 0 &&
+          // Only plain identifiers (<Pricing/>) are one-hop candidates —
+          // member expressions (<Ctx.Provider/>, <motion.div/>) collapse to
+          // their object name via getElementName and would resolve the
+          // wrong (or an unrelated) import.
+          t.isJSXIdentifier(nameNode) && /^[A-Z]/.test(name)
+        ) {
+          // Placeholder in document order; cli.ts replaces it with the
+          // resolved component's own blocks (or drops it if unresolved).
+          result.blocks.push({ type: 'component', text: '', componentName: name });
+        }
       },
       exit(nodePath) {
         const name = getElementName(nodePath.node.openingElement.name);
@@ -225,5 +269,6 @@ function empty(): ExtractedContent {
     description: null,
     hasDynamicMetadata: false,
     parseFailed: false,
+    imports: {},
   };
 }

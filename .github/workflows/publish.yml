@@ -35,7 +35,12 @@ jobs:
         run: npm test
 
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        # Prerelease versions (0.1.5-rc.1) go to the rc dist-tag so an rc
+        # publish can never move `latest`.
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          case "$PKG_VERSION" in *-*) TAG=rc;; *) TAG=latest;; esac
+          npm publish --provenance --access public --tag "$TAG"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

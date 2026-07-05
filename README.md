@@ -214,6 +214,7 @@ telogen extracts text from JSX using a set of heuristics:
 - **Paragraphs and other elements** → plain text
 - **String props** on elements with semantic names (`title`, `description`, `label`, `heading`, `caption`, `summary`, `body`, `content`, `text`) → text blocks
 - **Navigation chrome** (`nav`, `header`, `footer`, `aside`) → skipped entirely
+- **Imported components** (`<Pricing />`) → resolved one hop (relative, alias, or barrel import) and extracted with the same rules
 
 `export const metadata = { title, description }` (App Router) is extracted and used as the page title and description in both the `.md` file and the `llms.txt` entry.
 
@@ -255,17 +256,17 @@ regardless of `.telogenignore`.
 
 ## Known limitations
 
-**Content inside custom components is not extracted.** telogen reads each route file directly — it does not follow import chains into the components the page renders. A page like this produces an empty `.md` file:
+**Imports are followed exactly one hop.** For every component a page renders, telogen resolves the import — relative paths, `tsconfig`/`jsconfig` `paths` aliases (`@/components/Pricing`), and barrel files (`components/index.ts`) all work — and extracts that component's content into the page's `.md`:
 
 ```tsx
-// app/page.tsx — telogen sees <Pricing /> but can't read inside Pricing.tsx
+// app/page.tsx — telogen follows <Pricing /> into Pricing.tsx and extracts its content
 export default async function Page() {
   const products = await getProducts();
   return <Pricing products={products} />;
 }
 ```
 
-This is a deliberate boundary: telogen analyzes each route file on its own rather than resolving import chains, which keeps it fast and dependency-free. To see what you're missing, run `npx telogen` once and open the generated `ai-annotation-guide.md` — it maps the extractable content inside your components. `<AIContent>` (from `telogen-react`) and the CLI-side support for reading it both ship together in Phase 2; until then, the guide at least tells you exactly where that content is.
+What it does **not** do: recurse further (components rendered *inside* `Pricing.tsx` are not followed), or look inside `node_modules`. Content deeper than one hop shows up in the generated `ai-annotation-guide.md` instead — and `<AIContent>` (from `telogen-react`) will let you mark it explicitly when it ships in Phase 2.
 
 **Pages that only call `redirect()` produce empty output.** This is expected — there is no content to extract.
 
