@@ -280,7 +280,7 @@ What it does **not** do: recurse further (components rendered *inside* `Pricing.
 git clone https://github.com/ggange/telogen
 cd telogen
 npm install
-npm test       # 71 tests, ~600ms
+npm test       # 142 tests, ~850ms
 npm run build  # outputs dist/cli.js
 ```
 
